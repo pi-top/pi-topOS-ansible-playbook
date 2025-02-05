@@ -134,10 +134,14 @@ jobs:
       - name: Print metadata
         run: cat playbooks/artifacts/metadata.txt
 
-      - name: Upload OS zip to GCS
-        uses: google-github-actions/upload-cloud-storage@v0.4.0
+      - name: Authenticate with GCP
+        uses: "google-github-actions/auth@v1.1.1"
         with:
-          credentials: ${{ secrets.GOOGLE_CLOUD_UPLOAD_JSON_CREDENTIALS }}
+          credentials_json: ${{ secrets.WEB_GCR_UPLOAD_KEY }}
+
+      - name: Upload OS zip to GCS
+        uses: google-github-actions/upload-cloud-storage@v1.0.3
+        with:
           path: 'playbooks/artifacts'
           glob: '**/*.zip'
           parent: false
