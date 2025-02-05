@@ -15,8 +15,11 @@ on:
       distro_name:
         description: 'OS distribution'
         required: true
-        default: 'bullseye'
-        type: string
+        default: 'bookworm'
+        type: choice
+        options:
+        - bullseye
+        - bookworm
 
 jobs:
   build:
@@ -32,7 +35,7 @@ jobs:
         uses: FranzDiebold/github-env-vars-action@v2.7.0
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -110,26 +113,35 @@ jobs:
           ${ANSIBLE} --extra-vars "build_number=${{ github.run_number || github.run_id }}" \
                      playbooks/analyse_build.yml
 
+      - name: Cleanup (to avoid CI space issues)
+        run: |
+          ls -l playbooks/artifacts
+          sudo rm -f playbooks/artifacts/*.img
+          ls -l playbooks/artifacts
+
       - name: Get current date
         id: date
         run: echo "DATE_STAMP=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Upload OS zip contents
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: pi-topOS_${{ inputs.distro_name }}_${{ inputs.repo_name }}_${{ env.BUILD_TYPE }}_${{ env.DATE_STAMP }}_B${{ github.run_number || github.run_id }}
           if-no-files-found: error
           path: |
             playbooks/artifacts/*
-            !**/*.zip
 
       - name: Print metadata
         run: cat playbooks/artifacts/metadata.txt
 
-      - name: Upload OS zip to GCS
-        uses: google-github-actions/upload-cloud-storage@v0.4.0
+      - name: Authenticate with GCP
+        uses: "google-github-actions/auth@v1.1.1"
         with:
-          credentials: ${{ secrets.GOOGLE_CLOUD_UPLOAD_JSON_CREDENTIALS }}
+          credentials_json: ${{ secrets.WEB_GCR_UPLOAD_KEY }}
+
+      - name: Upload OS zip to GCS
+        uses: google-github-actions/upload-cloud-storage@v1.0.3
+        with:
           path: 'playbooks/artifacts'
           glob: '**/*.zip'
           parent: false
